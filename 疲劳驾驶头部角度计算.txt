@@ -1,0 +1,55 @@
+头部姿态（头部角度）的计算是基于3D头部模型和2D面部关键点的对应关系，使用PnP（Perspective-n-Point）算法求解得到的。具体来说，头部角度的基准点和计算方式如下：
+
+1. 基准点选择
+头部姿态计算的基准点是鼻根点（3D模型中的原点 (0.0, 0.0, 0.0)），其他关键点（如下巴、眼角、嘴角等）的位置均相对于鼻根点定义。以下是代码中使用的3D模型点和对应的面部关键点索引：
+
+2. 坐标系定义
+原点：鼻根点（3D模型中的 (0,0,0)）。
+
+X轴：向右为正方向（从鼻根指向右侧）。
+
+Y轴：向下为正方向（从鼻根指向下巴）。
+
+Z轴：向后为正方向（从鼻根指向头部后方）。
+
+3. 角度计算原理
+通过以下步骤计算头部姿态角度（Pitch、Yaw、Roll）：
+
+PnP求解：使用 cv2.solvePnP 计算旋转向量（rotation_vec）和平移向量（translation_vec）。
+
+旋转矩阵：通过 cv2.Rodrigues 将旋转向量转换为旋转矩阵（rmat）。
+
+欧拉角分解：使用 cv2.RQDecomp3x3 从旋转矩阵分解出欧拉角（Pitch、Yaw、Roll）。
+
+
+# 求解PnP问题
+success, rotation_vec, translation_vec = cv2.solvePnP(
+    model_points, image_points, camera_matrix, dist_coeffs, 
+    flags=cv2.SOLVEPNP_EPNP)
+
+# 计算旋转矩阵
+rmat, _ = cv2.Rodrigues(rotation_vec)
+
+# 计算欧拉角
+angles, _, _, _, _, _ = cv2.RQDecomp3x3(rmat)
+pitch, yaw, roll = angles * 180 / math.pi  # 转换为角度
+4. 角度定义
+Pitch（俯仰角）：点头动作（正值为低头，负值为抬头）。
+
+基准：鼻根-下巴连线与水平面的夹角。
+
+Yaw（偏航角）：摇头动作（正值为向右转，负值为向左转）。
+
+基准：鼻根-鼻尖方向与正前方投影的夹角。
+
+Roll（翻滚角）：头部倾斜（正值为左倾，负值为右倾）。
+
+基准：两眼角连线与水平面的夹角。
+
+5. 关键点稳定性优化
+代码中使用了更稳定的关键点组合（如眉中点替代眉尾点），并通过平滑处理（移动平均）减少抖动：
+
+
+# 平滑处理
+head_pose_history.append(raw_angles)
+smoothed_angles = np.mean(head_pose_history, axis=0)
